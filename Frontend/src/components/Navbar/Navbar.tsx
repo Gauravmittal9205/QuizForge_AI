@@ -1,11 +1,16 @@
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Sparkles, CreditCard, HelpCircle, MessageSquare } from 'lucide-react';
+import { Menu, X, Sparkles, CreditCard, HelpCircle, MessageSquare, User, LogOut } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { User as FirebaseUser } from 'firebase/auth';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, signOut } = useAuth();
+  const { currentUser: user } = useAuth();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
 
   useEffect(() => {
@@ -16,6 +21,15 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Failed to sign out', error);
+    }
+  };
 
   const navLinks = [
     { name: 'Features', path: '/features', icon: <Sparkles size={18} className="mr-2" /> },
@@ -32,7 +46,6 @@ const Navbar = () => {
     >
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isAuthPage ? 'bg-white' : ''}`}>
         <div className="flex justify-between items-center h-16">
-          {/* Left side - Logo */}
           <div className="flex-shrink-0 flex items-center">
             <Link to="/" className="flex items-center">
               <Sparkles className="h-6 w-6 text-indigo-600" />
@@ -42,7 +55,6 @@ const Navbar = () => {
             </Link>
           </div>
 
-          {/* Center - Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center flex-1">
             <div className="flex space-x-8">
               {navLinks.map((link) => (
@@ -58,23 +70,42 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* Right side - Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link
-              to="/login"
-              className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              to="/pricing"
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-200 transition-colors"
+                  title={user.email || 'Profile'}
+                >
+                  <User size={18} />
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <Link
+                  to="/login"
+                  className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  Get Started
+                </Link>
+              </div>
+            )}
           </div>
 
-          {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
@@ -98,29 +129,52 @@ const Navbar = () => {
             <Link
               key={link.path}
               to={link.path}
-              className="flex items-center px-3 py-2 text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-md"
+              className="flex items-center text-gray-700 hover:text-indigo-600 hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium"
               onClick={() => setIsOpen(false)}
             >
               {link.icon}
               {link.name}
             </Link>
           ))}
-          <div className="pt-4 pb-2 border-t border-gray-200">
-            <Link
-              to="/login"
-              className="block w-full mb-2 px-4 py-2 text-sm font-medium text-center text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
-              onClick={() => setIsOpen(false)}
-            >
-              Login
-            </Link>
-            <Link
-              to="/get-started"
-              className="block w-full px-4 py-2 text-sm font-medium text-center text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-md hover:opacity-90"
-              onClick={() => setIsOpen(false)}
-            >
-              Get Started
-            </Link>
-          </div>
+          {currentUser ? (
+            <>
+              <div className="flex items-center px-3 py-2">
+                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                  <User size={18} />
+                </div>
+                <span className="ml-2 text-sm font-medium text-gray-700">
+                  {currentUser.email?.split('@')[0]}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setIsOpen(false);
+                }}
+                className="w-full flex items-center text-gray-700 hover:text-indigo-600 hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium"
+              >
+                <LogOut size={18} className="mr-2" />
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="block text-gray-700 hover:text-indigo-600 hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/pricing"
+                className="block text-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-md text-base font-medium hover:opacity-90 transition-opacity"
+                onClick={() => setIsOpen(false)}
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

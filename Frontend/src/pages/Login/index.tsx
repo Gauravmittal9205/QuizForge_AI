@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Github } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Github } from 'lucide-react';
 import GoogleIcon from '../../components/GoogleIcon';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Welcome image component
 import WelcomeImage from '../../assets/Welcome.avif';
@@ -25,15 +26,39 @@ const Login = () => {
   });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const { login, signInWithGoogle } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Login form submitted:', formData);
+    setLoginError('');
+    
+    if (!formData.email || !formData.password) {
+      return setLoginError('Please fill in all fields');
+    }
+
+    try {
+      setIsLoading(true);
+      await login(formData.email, formData.password);
+      navigate('/');
+    } catch (error: any) {
+      setLoginError(error.message || 'Failed to log in');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithGoogle();
+      navigate('/');
+    } catch (error: any) {
+      setLoginError(error.message || 'Failed to sign in with Google');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +161,19 @@ const Login = () => {
                 </div>
               </div>
 
+              {loginError && (
+                <div className="rounded-md bg-red-50 p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-700">{loginError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center">
                 <input
                   id="remember-me"
@@ -170,13 +208,15 @@ const Login = () => {
 
             <div className="mt-6 grid grid-cols-2 gap-3">
               <div>
-                <a
-                  href="#"
-                  className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <GoogleIcon />
+                  <GoogleIcon className="w-5 h-5" />
                   <span className="ml-2">Google</span>
-                </a>
+                </button>
               </div>
 
               <div>

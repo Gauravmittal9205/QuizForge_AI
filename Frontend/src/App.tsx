@@ -1,7 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion, useAnimation, useInView, Variants } from 'framer-motion';
-import { Upload, Youtube, FileVideo, Brain, BarChart3, Github, Twitter, Mail, Sparkles, ArrowRight } from 'lucide-react';
+import { 
+  Sparkles, 
+  ArrowRight, 
+  FileVideo, 
+  Brain, 
+  BarChart3, 
+  Upload, 
+  Github, 
+  Twitter, 
+  Mail,
+  Youtube 
+} from 'lucide-react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Features from './pages/Features';
 import HowItWorks from './pages/HowItWorks';
@@ -453,33 +465,23 @@ const Home = () => {
   );
 };
 
-function App() {
+
+const AppContent = () => {
+  const { currentUser } = useAuth();
+  
+  // Always show the landing page by default
   return (
-    <Router>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
       <Routes>
-        <Route path="/" element={
-          <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-            <Navbar />
-            <Home />
-          </div>
-        } />
+        <Route path="/" element={<Home />} />
         <Route path="/features" element={<Features />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/help" element={<Help />} />
         <Route path="/faq" element={<Faq />} />
-        <Route path="/login" element={
-          <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Navbar />
-            <Login />
-          </div>
-        } />
-        <Route path="/signup" element={
-          <div className="min-h-screen bg-white">
-            <Navbar />
-            <Signup />
-          </div>
-        } />
+        <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/signup" element={currentUser ? <Navigate to="/" replace /> : <Signup />} />
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="text-center">
@@ -492,8 +494,50 @@ function App() {
           </div>
         } />
       </Routes>
-    </Router>
+    </div>
   );
-}
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/features" element={<Features />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/help" element={<Help />} />
+        <Route path="/faq" element={<Faq />} />
+        <Route 
+          path="/login" 
+          element={currentUser ? <Navigate to="/" replace /> : <Login />} 
+        />
+        <Route 
+          path="/signup" 
+          element={currentUser ? <Navigate to="/" replace /> : <Signup />} 
+        />
+        <Route path="*" element={
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">404 - Page Not Found</h1>
+              <p className="text-gray-600 mb-6">The page you're looking for doesn't exist or has been moved.</p>
+              <a href="/" className="text-blue-600 hover:underline">
+                Go back home
+              </a>
+            </div>
+          </div>
+        } />
+      </Routes>
+    </div>
+  );
+};
+
+// Remove StrictMode to prevent double rendering in development
+const App = () => (
+  <Router>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  </Router>
+);
 
 export default App;
