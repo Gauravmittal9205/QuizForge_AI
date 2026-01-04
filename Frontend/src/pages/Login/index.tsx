@@ -27,7 +27,7 @@ const Login = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const { login, signInWithGoogle } = useAuth();
+  const { login, signInWithGoogle, signInWithGithub } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -56,6 +56,18 @@ const Login = () => {
       navigate('/');
     } catch (error: any) {
       setLoginError(error.message || 'Failed to sign in with Google');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGithubSignIn = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithGithub();
+      navigate('/');
+    } catch (error: any) {
+      setLoginError(error.message || 'Failed to sign in with GitHub');
     } finally {
       setIsLoading(false);
     }
@@ -220,13 +232,15 @@ const Login = () => {
               </div>
 
               <div>
-                <a
-                  href="#"
-                  className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                <button
+                  type="button"
+                  onClick={handleGithubSignIn}
+                  disabled={isLoading}
+                  className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Github className="h-5 w-5 mr-2" />
                   GitHub
-                </a>
+                </button>
               </div>
             </div>
           </div>

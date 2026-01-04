@@ -7,12 +7,18 @@ exports.getUser = exports.createOrUpdateUser = void 0;
 const userModel_1 = __importDefault(require("../models/userModel"));
 const createOrUpdateUser = async (req, res) => {
     try {
-        const { uid, email, displayName, photoURL } = req.body;
+        const { uid, email, name, displayName: displayNameFromReq, photoURL } = req.body;
+        // Use name if provided, otherwise use displayName, or fallback to null
+        const displayName = name || displayNameFromReq || null;
         // Check if user already exists
         let user = await userModel_1.default.findOne({ uid });
         if (user) {
             // Update existing user
-            user = await userModel_1.default.findOneAndUpdate({ uid }, { email, displayName, photoURL }, { new: true });
+            user = await userModel_1.default.findOneAndUpdate({ uid }, {
+                email,
+                displayName: displayName || user.displayName, // Only update if new value is provided
+                photoURL: photoURL || user.photoURL // Only update if new value is provided
+            }, { new: true });
         }
         else {
             // Create new user

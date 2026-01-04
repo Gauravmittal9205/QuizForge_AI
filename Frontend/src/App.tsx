@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { motion, useAnimation, useInView, Variants } from 'framer-motion';
 import { 
   Sparkles, 
@@ -466,37 +466,12 @@ const Home = () => {
 };
 
 
+// Import the Profile component at the top of the file
+import Profile from './pages/Profile';
+
 const AppContent = () => {
   const { currentUser } = useAuth();
   
-  // Always show the landing page by default
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/features" element={<Features />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/help" element={<Help />} />
-        <Route path="/faq" element={<Faq />} />
-        <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/signup" element={currentUser ? <Navigate to="/" replace /> : <Signup />} />
-        <Route path="*" element={
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">404 - Page Not Found</h1>
-              <p className="text-gray-600 mb-6">The page you're looking for doesn't exist or has been moved.</p>
-              <a href="/" className="text-blue-600 hover:underline">
-                Go back home
-              </a>
-            </div>
-          </div>
-        } />
-      </Routes>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -514,6 +489,10 @@ const AppContent = () => {
         <Route 
           path="/signup" 
           element={currentUser ? <Navigate to="/" replace /> : <Signup />} 
+        />
+        <Route 
+          path="/profile" 
+          element={currentUser ? <Profile /> : <Navigate to="/login" replace />} 
         />
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center bg-gray-50">

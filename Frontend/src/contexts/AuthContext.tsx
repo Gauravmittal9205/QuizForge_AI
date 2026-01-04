@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
+import { auth, googleProvider, githubProvider } from '../firebase';
 
 interface AuthContextType {
   currentUser: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithGithub: () => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -30,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { user } = userCredential;
     
     // Save user to MongoDB
-    await fetch('http://localhost:5000/api/users', {
+    await fetch('http://localhost:5001/api/users', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user } = result;
       
       // Save/Update user in MongoDB
-      await fetch('http://localhost:5000/api/users', {
+      await fetch('http://localhost:5001/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,6 +69,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch (error) {
       console.error('Error signing in with Google:', error);
+      throw error;
+    }
+  };
+
+  const signInWithGithub = async () => {
+    try {
+      const result = await signInWithPopup(auth, githubProvider);
+      const { user } = result;
+      
+      // Save/Update user in MongoDB
+      await fetch('http://localhost:5001/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || '',
+          photoURL: user.photoURL || '',
+        }),
+      });
+    } catch (error) {
+      console.error('Error signing in with GitHub:', error);
       throw error;
     }
   };
@@ -92,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     signup,
     signInWithGoogle,
+    signInWithGithub,
     signOut,
     loading,
   };

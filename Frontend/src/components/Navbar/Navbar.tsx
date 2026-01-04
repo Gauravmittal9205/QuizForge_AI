@@ -1,8 +1,15 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Menu, X, Sparkles, CreditCard, HelpCircle, MessageSquare, User, LogOut } from 'lucide-react';
+import { 
+  Menu, 
+  X, 
+  Sparkles, 
+  CreditCard, 
+  HelpCircle, 
+  MessageSquare
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { User as FirebaseUser } from 'firebase/auth';
+import ProfileDropdown from './ProfileDropdown';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,8 +17,8 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
-  const { currentUser: user } = useAuth();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
+  const isProfilePage = location.pathname === '/profile';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,7 +48,7 @@ const Navbar = () => {
   return (
     <nav
       className={`fixed w-full z-50 transition-all duration-300 ${
-        isScrolled || isAuthPage ? 'bg-white shadow-md' : 'bg-transparent'
+        isScrolled || isAuthPage || isProfilePage ? 'bg-white shadow-md' : 'bg-transparent'
       }`}
     >
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isAuthPage ? 'bg-white' : ''}`}>
@@ -71,23 +78,8 @@ const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            {user ? (
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => navigate('/profile')}
-                  className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-200 transition-colors"
-                  title={user.email || 'Profile'}
-                >
-                  <User size={18} />
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  className="text-gray-700 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors"
-                  title="Sign Out"
-                >
-                  <LogOut size={18} />
-                </button>
-              </div>
+            {currentUser ? (
+              <ProfileDropdown user={currentUser} onSignOut={handleSignOut} />
             ) : (
               <div className="flex items-center space-x-3">
                 <Link
@@ -137,26 +129,15 @@ const Navbar = () => {
             </Link>
           ))}
           {currentUser ? (
-            <>
-              <div className="flex items-center px-3 py-2">
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                  <User size={18} />
-                </div>
-                <span className="ml-2 text-sm font-medium text-gray-700">
-                  {currentUser.email?.split('@')[0]}
-                </span>
-              </div>
-              <button
-                onClick={() => {
+            <div className="border-t border-gray-100">
+              <ProfileDropdown 
+                user={currentUser} 
+                onSignOut={() => {
                   handleSignOut();
                   setIsOpen(false);
-                }}
-                className="w-full flex items-center text-gray-700 hover:text-indigo-600 hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium"
-              >
-                <LogOut size={18} className="mr-2" />
-                Sign Out
-              </button>
-            </>
+                }} 
+              />
+            </div>
           ) : (
             <>
               <Link
