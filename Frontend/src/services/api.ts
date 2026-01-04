@@ -1,8 +1,14 @@
-import { getAuth } from '../contexts/AuthContext';
+import { getAuth } from 'firebase/auth';
 
 export const updateProfile = async (data: any) => {
-  const { getAuthToken } = getAuth();
-  const token = await getAuthToken();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  const token = await user.getIdToken();
   
   const response = await fetch('http://localhost:5001/api/profile', {
     method: 'PUT',
@@ -22,8 +28,14 @@ export const updateProfile = async (data: any) => {
 };
 
 export const getProfile = async () => {
-  const { getAuthToken } = getAuth();
-  const token = await getAuthToken();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  const token = await user.getIdToken();
   
   const response = await fetch('http://localhost:5001/api/profile', {
     headers: {

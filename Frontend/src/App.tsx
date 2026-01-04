@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion, useAnimation, useInView, Variants } from 'framer-motion';
 import { 
   Sparkles, 
@@ -465,16 +465,19 @@ const Home = () => {
   );
 };
 
-
-// Import the Profile component at the top of the file
 import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard';
 
 const AppContent = () => {
   const { currentUser } = useAuth();
+  const location = useLocation();
+  
+  // Check if current route is a dashboard route
+  const isDashboardRoute = location.pathname.startsWith('/dashboard');
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
+      {!isDashboardRoute && <Navbar />}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/features" element={<Features />} />
@@ -493,6 +496,10 @@ const AppContent = () => {
         <Route 
           path="/profile" 
           element={currentUser ? <Profile /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/dashboard/*" 
+          element={currentUser ? <Dashboard /> : <Navigate to="/login" replace />} 
         />
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center bg-gray-50">
