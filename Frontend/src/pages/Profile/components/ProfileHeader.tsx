@@ -68,7 +68,7 @@ const ProfileHeader = ({ userData, isEditing, onEditToggle, onSave, onImageChang
           {isEditing && (
             <button 
               onClick={triggerFileInput}
-              className="p-2 bg-white/20 backdrop-blur-sm rounded-lg text-white hover:bg-white/30 transition-colors"
+              className="p-2 bg-white/20 backdrop-blur-sm rounded-lg text-gray-900 hover:bg-white/30 transition-colors"
               title="Change Avatar"
               type="button"
             >
@@ -84,7 +84,7 @@ const ProfileHeader = ({ userData, isEditing, onEditToggle, onSave, onImageChang
           )}
           <button 
             onClick={isEditing ? onSave : onEditToggle}
-            className="flex items-center px-4 py-2 bg-white text-indigo-600 rounded-lg font-medium hover:bg-indigo-50 transition-colors"
+            className="flex items-center px-4 py-2 bg-white text-indigo-700 rounded-lg font-medium hover:bg-indigo-50 transition-colors"
           >
             <Edit size={16} className="mr-2" />
             {isEditing ? 'Save Changes' : 'Edit Profile'}

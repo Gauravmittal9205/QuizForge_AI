@@ -10,8 +10,7 @@ import {
   Upload, 
   Github, 
   Twitter, 
-  Mail,
-  Youtube 
+  Mail
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
@@ -24,24 +23,40 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 
 const Home = () => {
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-      setYoutubeUrl('');
-    }
-  };
+  const [progress, setProgress] = useState(0);
+  const progressIntervalRef = useRef<number | null>(null);
 
   const handleSubmit = () => {
-    if (!youtubeUrl && !selectedFile) return;
+    if (isLoading) return;
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      alert('Quiz generation coming soon!');
-    }, 2000);
+    setProgress(0);
+
+    if (progressIntervalRef.current) {
+      window.clearInterval(progressIntervalRef.current);
+    }
+
+    progressIntervalRef.current = window.setInterval(() => {
+      setProgress((prev) => {
+        const next = Math.min(prev + 5, 100);
+
+        if (next === 100) {
+          if (progressIntervalRef.current) {
+            window.clearInterval(progressIntervalRef.current);
+            progressIntervalRef.current = null;
+          }
+
+          window.setTimeout(() => {
+            setIsLoading(false);
+            alert('Syllabus tracking coming soon!');
+            setProgress(0);
+          }, 300);
+        }
+
+        return next;
+      });
+    }, 100);
   };
 
   const controls = useAnimation();
@@ -53,6 +68,15 @@ const Home = () => {
       controls.start('visible');
     }
   }, [isInView, controls]);
+
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        window.clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const container: Variants = {
     hidden: { opacity: 0 },
@@ -99,14 +123,14 @@ const Home = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                Turn Any Video Into
+                AI-Powered Syllabus Tracker
                 <motion.span 
                   className="block bg-gradient-to-r from-cyan-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent mt-4"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.2 }}
                 >
-                  Smart Quizzes Instantly
+                  for Smart Students
                 </motion.span>
               </motion.h1>
               <motion.p 
@@ -115,7 +139,9 @@ const Home = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
               >
-                Upload a video or paste a YouTube link and let AI generate quizzes, summaries, and insights automatically.
+                Upload your syllabus. Study with AI. Track every chapter.
+            
+                
               </motion.p>
             </motion.div>
 
@@ -125,65 +151,34 @@ const Home = () => {
               whileHover={{ scale: 1.01 }}
               transition={{ type: 'spring', stiffness: 400, damping: 10 }}
             >
-              <motion.div 
-                className="absolute -inset-0.5 bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 rounded-2xl blur opacity-20 group-hover:opacity-40 transition-all duration-500"
-                animate={{
-                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-                }}
-                transition={{
-                  duration: 8,
-                  repeat: Infinity,
-                  ease: 'linear',
-                }}
-                style={{
-                  backgroundSize: '200% 200%',
-                }}
-              />
-              <div className="relative bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-8 md:p-12 space-y-6 shadow-lg hover:shadow-xl transition-all duration-300">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                    <input
-                      type="text"
-                      placeholder="Paste YouTube link here..."
-                      value={youtubeUrl}
-                      onChange={(e) => {
-                        setYoutubeUrl(e.target.value);
-                        setSelectedFile(null);
-                      }}
-                      className="w-full bg-gray-50 border border-gray-300 rounded-xl px-12 py-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <span className="text-gray-500 text-sm">or</span>
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="video/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                      <div className="flex items-center gap-2 bg-gray-50 border border-gray-300 rounded-xl px-6 py-4 hover:border-cyan-500 hover:bg-cyan-50 transition-colors">
-                        <Upload className="w-5 h-5 text-gray-600" />
-                        <span className="text-sm whitespace-nowrap text-gray-700">
-                          {selectedFile ? selectedFile.name.slice(0, 20) + '...' : 'Upload Video'}
-                        </span>
-                      </div>
-                    </label>
+              <div className="space-y-6">
+                <div className="space-y-4">
+                
+                  <div className="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-center gap-3">
+                    <div className="px-4 py-2 rounded-full bg-gray-50 border border-gray-200 text-gray-800 text-sm font-medium">
+                      Upload your syllabus
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-400 transform rotate-90 md:rotate-0" />
+                    <div className="px-4 py-2 rounded-full bg-gray-50 border border-gray-200 text-gray-800 text-sm font-medium">
+                      Add notes / PDFs
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-400 transform rotate-90 md:rotate-0" />
+                    <div className="px-4 py-2 rounded-full bg-gray-50 border border-gray-200 text-gray-800 text-sm font-medium">
+                      Track what you’ve studied
+                    </div>
                   </div>
                 </div>
 
                 <motion.button
                   onClick={handleSubmit}
-                  disabled={isLoading || (!youtubeUrl && !selectedFile)}
+                  disabled={isLoading}
                   className={`group relative w-full md:w-auto px-8 py-4 rounded-xl font-medium text-white overflow-hidden ${
-                    !youtubeUrl && !selectedFile
+                    isLoading
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:shadow-lg'
                   }`}
                   whileTap={{ scale: 0.98 }}
-                  whileHover={!isLoading && (youtubeUrl || selectedFile) ? {
+                  whileHover={!isLoading ? {
                     scale: 1.02,
                     boxShadow: '0 10px 25px -5px rgba(14, 165, 233, 0.4)',
                   } : {}}
@@ -209,20 +204,35 @@ const Home = () => {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Processing...
+                        Progress {progress}%
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-5 h-5 mr-2 group-hover:animate-pulse" />
-                        <span>Generate Quiz</span>
+                        <span>✅ Start Tracking My Syllabus</span>
                         <ArrowRight className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
                   </span>
                 </motion.button>
 
+                {isLoading && (
+                  <div className="w-full max-w-md mx-auto">
+                    <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+                      <span>Loading</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-blue-500"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-sm text-gray-600 text-center">
-                  Supports MP4, MKV, AVI, MOV and YouTube links
+                  🎯 Perfect for students, exam aspirants, and self-learners
                 </p>
               </div>
             </motion.div>
@@ -235,34 +245,34 @@ const Home = () => {
               Powerful <span className="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">Features</span>
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Discover tools designed to make quiz creation simple and effective
+              Everything you need to turn your syllabus into a smart AI study system
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {[
               {
                 icon: Sparkles,
-                title: 'AI Quiz Generator',
-                description: 'Automatically generate comprehensive quizzes from any video content',
-                explanation: 'Our AI analyzes video content to create engaging and relevant quiz questions, saving you hours of manual work.'
+                title: 'AI Study Plan Generator',
+                description: 'Convert your syllabus into a personalized chapter-wise plan',
+                explanation: 'EduTrack AI reads your syllabus and creates a structured roadmap with chapters, priorities, and suggested study flow.'
               },
               {
                 icon: FileVideo,
-                title: 'Video to Text',
-                description: 'Advanced transcription with timestamps and speaker detection',
-                explanation: 'Convert any video into accurate, searchable text with speaker identification and precise timing information.'
+                title: 'Syllabus Upload & Parsing',
+                description: 'Upload syllabus and organize topics automatically',
+                explanation: 'Upload your syllabus file and let the system break it into chapters/topics so you can track progress clearly.'
               },
               {
                 icon: Brain,
-                title: 'Smart Question Engine',
-                description: 'AI analyzes content to create meaningful and relevant questions',
-                explanation: 'Our engine understands context and creates questions that test real understanding, not just memorization.'
+                title: 'AI Learning Assistant',
+                description: 'Get explanations, notes, and smart study guidance',
+                explanation: 'Ask doubts, generate quick notes, and get help understanding difficult topics—aligned with your syllabus.'
               },
               {
                 icon: BarChart3,
-                title: 'Instant Evaluation',
-                description: 'Get immediate feedback and detailed performance analytics',
-                explanation: 'Track progress with real-time analytics and detailed performance reports for every quiz attempt.'
+                title: 'Chapter Progress Tracking',
+                description: 'Track what’s done, what’s pending, and what’s next',
+                explanation: 'Mark chapters complete, monitor consistency, and stay on track with a clear syllabus progress view.'
               }
             ].map((feature, index) => (
               <div
@@ -289,7 +299,7 @@ const Home = () => {
               How It <span className="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">Works</span>
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Transform your videos into engaging quizzes in just a few simple steps
+              Turn your syllabus into an AI-powered study plan in a few simple steps
             </p>
           </div>
           <div className="max-w-6xl mx-auto">
@@ -298,43 +308,43 @@ const Home = () => {
                 {
                   step: '01',
                   icon: <Upload className="w-6 h-6" />,
-                  title: 'Upload Content',
-                  description: 'Paste a YouTube link or upload your video file from any device',
+                  title: 'Upload Your Syllabus',
+                  description: 'Upload your syllabus (or paste a link) to get started',
                   gradient: 'from-purple-500 to-indigo-600'
                 },
                 {
                   step: '02',
                   icon: <Brain className="w-6 h-6" />,
-                  title: 'AI Analysis',
-                  description: 'Our AI processes content, extracts key concepts and understands context',
+                  title: 'AI Understands Topics',
+                  description: 'EduTrack AI extracts chapters/topics and builds a structured roadmap',
                   gradient: 'from-blue-500 to-cyan-600'
                 },
                 {
                   step: '03',
                   icon: <FileVideo className="w-6 h-6" />,
-                  title: 'Content Processing',
-                  description: 'Video is transcribed and analyzed for key learning points',
+                  title: 'Add Notes & PDFs',
+                  description: 'Attach your notes, PDFs, and resources chapter-wise',
                   gradient: 'from-cyan-500 to-teal-500'
                 },
                 {
                   step: '04',
                   icon: <Sparkles className="w-6 h-6" />,
-                  title: 'Quiz Generation',
-                  description: 'AI creates relevant questions based on video content',
+                  title: 'Generate Study Plan',
+                  description: 'Get a personalized plan with priorities and suggested order',
                   gradient: 'from-teal-500 to-emerald-500'
                 },
                 {
                   step: '05',
                   icon: <BarChart3 className="w-6 h-6" />,
-                  title: 'Review & Customize',
-                  description: 'Edit questions, adjust difficulty, and add your own',
+                  title: 'Track Your Progress',
+                  description: 'Mark chapters complete and see what’s pending at a glance',
                   gradient: 'from-emerald-500 to-green-500'
                 },
                 {
                   step: '06',
                   icon: <ArrowRight className="w-6 h-6" />,
-                  title: 'Share & Engage',
-                  description: 'Share your quiz and track engagement analytics',
+                  title: 'Study Smarter Daily',
+                  description: 'Use AI help to revise, clarify concepts, and stay consistent',
                   gradient: 'from-green-500 to-lime-500'
                 }
               ].map((item, index) => (
@@ -364,14 +374,14 @@ const Home = () => {
                   <div className="p-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg transform group-hover:rotate-12 transition-transform">
                     <Sparkles className="w-6 h-6 text-white" />
                   </div>
-                  <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">QuizForge AI</span>
+                  <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">EduTrack AI</span>
                 </div>
                 <p className="text-gray-400 text-sm">Transform your videos into engaging quizzes with AI-powered precision.</p>
                 <div className="flex gap-4 pt-2">
                   {[
                     { icon: <Github className="w-5 h-5" />, label: 'GitHub', url: '#' },
                     { icon: <Twitter className="w-5 h-5" />, label: 'Twitter', url: '#' },
-                    { icon: <Mail className="w-5 h-5" />, label: 'Email', url: 'mailto:contact@quizforgeai.com' }
+                    { icon: <Mail className="w-5 h-5" />, label: 'Email', url: 'mailto:contact@edutrackai.com' }
                   ].map((social, index) => (
                     <a 
                       key={index}
@@ -447,10 +457,9 @@ const Home = () => {
                 </div>
               </div>
             </div>
-
             <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
               <div className="text-gray-500 text-sm mb-4 md:mb-0">
-                &copy; {new Date().getFullYear()} QuizForge AI. All rights reserved.
+                &copy; {new Date().getFullYear()} EduTrack AI. All rights reserved.
               </div>
               <div className="flex gap-6">
                 <a href="#" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Terms</a>

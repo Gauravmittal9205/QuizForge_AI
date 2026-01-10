@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Search, Mail, MessageSquare, Video, FileText, CreditCard, User, Settings } from 'lucide-react';
 import Layout from '../../components/Layout';
 
@@ -43,7 +42,7 @@ const Help = () => {
       answer: 'We support MP4, MOV, AVI, and WebM video formats. You can also use YouTube links directly.',
       category: 'getting-started'
     },
-    
+
     // Account & Billing
     {
       id: 'subscription-plans',
@@ -57,7 +56,7 @@ const Help = () => {
       answer: 'Yes, you can switch between monthly and annual billing in your account settings. Annual plans come with a 20% discount.',
       category: 'account'
     },
-    
+
     // Video Processing
     {
       id: 'video-length',
@@ -65,7 +64,7 @@ const Help = () => {
       answer: 'Free users can process videos up to 10 minutes long. Basic users can process videos up to 1 hour, and Pro users can process videos up to 4 hours long.',
       category: 'videos'
     },
-    
+
     // Creating Quizzes
     {
       id: 'customize-questions',
@@ -79,7 +78,7 @@ const Help = () => {
       answer: 'Our AI can generate multiple-choice, true/false, and short-answer questions based on your video content.',
       category: 'quizzes'
     },
-    
+
     // Troubleshooting
     {
       id: 'video-processing-issues',
@@ -89,10 +88,10 @@ const Help = () => {
     }
   ];
 
-  const filteredFaqs = allFaqs.filter(faq => 
+  const filteredFaqs = allFaqs.filter(faq =>
     (activeTab === 'all' || faq.category === activeTab) &&
-    (faq.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
-     faq.answer.toLowerCase().includes(searchQuery.toLowerCase()))
+    (faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.answer.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -103,7 +102,7 @@ const Help = () => {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Find answers to common questions or get in touch with our support team.
           </p>
-          
+
           <div className="mt-8 max-w-2xl mx-auto relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
@@ -128,11 +127,10 @@ const Help = () => {
                   <button
                     key={category.id}
                     onClick={() => setActiveTab(category.id)}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      activeTab === category.id
+                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeTab === category.id
                         ? 'bg-blue-50 text-blue-600'
                         : 'text-gray-600 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <span className="mr-3">{category.icon}</span>
                     {category.name}
@@ -207,7 +205,7 @@ const Help = () => {
                         required
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         value={contactForm.name}
-                        onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
+                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                       />
                     </div>
 
@@ -221,7 +219,7 @@ const Help = () => {
                         required
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         value={contactForm.email}
-                        onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                       />
                     </div>
                   </div>
@@ -236,7 +234,7 @@ const Help = () => {
                       required
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       value={contactForm.subject}
-                      onChange={(e) => setContactForm({...contactForm, subject: e.target.value})}
+                      onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
                     />
                   </div>
 
@@ -250,7 +248,7 @@ const Help = () => {
                       required
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       value={contactForm.message}
-                      onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
+                      onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
                     />
                   </div>
 

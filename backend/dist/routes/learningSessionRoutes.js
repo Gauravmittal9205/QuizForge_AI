@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const learningSessionController_1 = require("../controllers/learningSessionController");
+const router = (0, express_1.Router)();
+router.post('/start', learningSessionController_1.startSession);
+router.get('/user/:userId', learningSessionController_1.getUserSessions);
+router.get('/:id', learningSessionController_1.getSession);
+router.put('/:id', learningSessionController_1.updateSession);
+router.post('/complete-topic', learningSessionController_1.completeTopicInSyllabus);
+exports.default = router;

@@ -57,7 +57,7 @@ const Navbar = () => {
             <Link to="/" className="flex items-center">
               <Sparkles className="h-6 w-6 text-indigo-600" />
               <span className="ml-2 text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                QuizForge AI
+                EduTrack AI
               </span>
             </Link>
           </div>

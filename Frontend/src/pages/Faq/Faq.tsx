@@ -59,7 +59,7 @@ const FaqPage = () => {
             Frequently Asked <span className="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">Questions</span>
           </h1>
           <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-            Find answers to common questions about QuizForge AI and how to get the most out of our platform.
+            Find answers to common questions about EduTrack AI and how to get the most out of our platform.
           </p>
         </div>
 

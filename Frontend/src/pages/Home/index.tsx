@@ -5,7 +5,7 @@ const Home = () => {
     <div className="min-h-screen flex flex-col">
       <main className="flex-grow flex items-center justify-center p-4">
         <div className="text-center max-w-4xl">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">Welcome to QuizForge AI</h1>
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">Welcome to EduTrack AI</h1>
           <p className="text-xl text-gray-600 mb-8">Transform your videos into interactive quizzes with AI</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link

@@ -1,14 +1,14 @@
 import { initializeApp } from "firebase/app";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
+import {
+  getAuth,
+  GoogleAuthProvider,
   GithubAuthProvider,
-  signInWithPopup, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut as firebaseSignOut, 
-  onAuthStateChanged, 
-  User 
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -21,21 +21,25 @@ const firebaseConfig = {
   measurementId: "G-R9ZQMQQ6ZZ"
 };
 
+import { getFirestore } from "firebase/firestore";
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
 
-export { 
-  auth, 
+export {
+  auth,
+  db,
   googleProvider,
   githubProvider,
-  signInWithPopup, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  firebaseSignOut, 
-  onAuthStateChanged 
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  firebaseSignOut,
+  onAuthStateChanged
 };
 
 export type { User };
