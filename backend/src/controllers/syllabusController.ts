@@ -5,13 +5,16 @@ import { AuthRequest } from '../middleware/auth';
 // Create a new syllabus
 export const createSyllabus = async (req: AuthRequest, res: Response) => {
   try {
-    const syllabusData = {
-      ...req.body,
+    // Remove any id and _id fields to let MongoDB generate proper ObjectId
+    const { id, _id, ...syllabusData } = req.body;
+    
+    const syllabusDataWithUser = {
+      ...syllabusData,
       userId: req.body?.userId || req.body?.uid,
       targetDate: req.body?.targetDate ? new Date(req.body.targetDate) : undefined,
     };
 
-    const syllabus = await Syllabus.create(syllabusData);
+    const syllabus = await Syllabus.create(syllabusDataWithUser);
     res.status(201).json(syllabus);
   } catch (error) {
     console.error('Error creating syllabus:', error);

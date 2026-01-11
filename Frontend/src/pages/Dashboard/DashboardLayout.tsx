@@ -67,6 +67,10 @@ import Tesseract from 'tesseract.js';
 import { db } from '../../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import PracticeQuizContent from './PracticeQuizContent';
+import RevisionModeContent from './RevisionModeContent';
+import StudyPlanContent from './StudyPlanContent';
+import NotificationContent from './NotificationContent';
+import SettingsContent from './SettingsContent';
 
 
 
@@ -330,7 +334,7 @@ interface Chapter {
 }
 
 interface SyllabusItem {
-  id: string;
+  id?: string;
   _id?: string;
   name: string;
   subjectCode?: string;
@@ -550,16 +554,16 @@ const StudyMaterialsView: React.FC<{
     <div className="space-y-4 animate-fade-in">
       {subjects.map((subject) => (
         <div
-          key={subject.id}
-          className={`group flex flex-col bg-[#121212]/80 backdrop-blur-xl border rounded-2xl overflow-hidden transition-all duration-300 ${expandedSubject === subject.id ? 'border-purple-500/30 ring-1 ring-purple-500/20 shadow-2xl shadow-purple-500/10' : 'border-white/10 hover:border-white/20'
+          key={subject.id || subject._id || Math.random().toString()}
+          className={`group flex flex-col bg-[#121212]/80 backdrop-blur-xl border rounded-2xl overflow-hidden transition-all duration-300 ${expandedSubject === (subject.id || subject._id) ? 'border-purple-500/30 ring-1 ring-purple-500/20 shadow-2xl shadow-purple-500/10' : 'border-white/10 hover:border-white/20'
             }`}
         >
           <div
             className="flex items-center justify-between p-5 cursor-pointer select-none"
-            onClick={() => setExpandedSubject(expandedSubject === subject.id ? null : subject.id)}
+            onClick={() => setExpandedSubject(expandedSubject === (subject.id || subject._id) ? null : subject.id || subject._id || '')}
           >
             <div className="flex items-center space-x-4">
-              <div className={`p-2.5 rounded-xl transition-all ${expandedSubject === subject.id ? 'bg-gradient-to-br from-purple-500 to-blue-600 text-white shadow-lg' : 'bg-white/5 text-gray-400'
+              <div className={`p-2.5 rounded-xl transition-all ${expandedSubject === (subject.id || subject._id) ? 'bg-gradient-to-br from-purple-500 to-blue-600 text-white shadow-lg' : 'bg-white/5 text-gray-400'
                 }`}>
                 <Folder size={20} />
               </div>
@@ -605,7 +609,7 @@ const StudyMaterialsView: React.FC<{
                     type="file"
                     className="hidden"
                     multiple
-                    onChange={(e) => handleUpload(subject.id, e.target.files)}
+                    onChange={(e) => handleUpload(subject.id || subject._id || '', e.target.files)}
                     accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.jpeg,.png"
                   />
                 </label>
@@ -617,9 +621,9 @@ const StudyMaterialsView: React.FC<{
                     <FileItemCard
                       key={material.id}
                       file={material}
-                      onStatusChange={(status) => handleStatusChange(subject.id, material.id, status)}
+                      onStatusChange={(status) => handleStatusChange(subject.id || subject._id || '', material.id, status)}
                       onDownload={() => handleDownload(material)}
-                      onDelete={() => handleDelete(subject.id, material.id)}
+                      onDelete={() => handleDelete(subject.id || subject._id || '', material.id)}
                       onView={() => onViewFile(material)}
                     />
                   ))
@@ -731,7 +735,6 @@ const SyllabusTrackerContent: React.FC<any> = ({
       );
       const newSubject: SyllabusItem = {
         ...syllabus,
-        id: Math.random().toString(36).substr(2, 9),
         attachments: processedAttachments,
         chapters: [],
         studyMaterials: [],
@@ -740,7 +743,9 @@ const SyllabusTrackerContent: React.FC<any> = ({
         status: 'pending' as const
       };
 
-      const savedSyllabus = await createSyllabus(newSubject);
+      // Remove id field to let MongoDB generate proper ObjectId
+      const { id, ...syllabusData } = newSubject;
+      const savedSyllabus = await createSyllabus(syllabusData);
       setSyllabusItems((prev: any) => [savedSyllabus, ...prev]);
       resetForm();
       setShowForm(false);
@@ -1447,7 +1452,7 @@ const SubjectCard: React.FC<{
 
     const handleExtractTopicsClick = (e: React.MouseEvent) => {
       e.stopPropagation();
-      onExtractTopics(subject.id);
+      onExtractTopics(subject.id || subject._id || '');
     };
 
     const handleUpdateChapter = (chapterId: string, newDescription: string) => {
@@ -1470,7 +1475,7 @@ const SubjectCard: React.FC<{
 
         <div
           className="relative p-5 cursor-pointer z-10"
-          onClick={() => onToggleExpand(subject.id)}
+          onClick={() => onToggleExpand(subject.id || subject._id || '')}
         >
           {/* ... Subject Header ... */}
           <div className="flex justify-between items-start">
@@ -1602,7 +1607,7 @@ const SubjectCard: React.FC<{
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDeleteSubject(subject.id);
+                        onDeleteSubject(subject.id || subject._id || '');
                       }}
                       className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all"
                       title="Delete subject"
@@ -1640,9 +1645,9 @@ const SubjectCard: React.FC<{
                     <ChapterItem
                       key={chapter.id || index}
                       chapter={chapter}
-                      onToggleExpand={() => onToggleChapterExpand(subject.id, chapter.id)}
-                      onToggleFileStatus={(chapterId, fileId) => onToggleFileStatus(subject.id, chapterId, fileId)}
-                      onRemoveFile={(chapterId, fileId) => onRemoveFile(subject.id, chapterId, fileId)}
+                      onToggleExpand={() => onToggleChapterExpand(subject.id || subject._id || '', chapter.id)}
+                      onToggleFileStatus={(chapterId, fileId) => onToggleFileStatus(subject.id || subject._id || '', chapterId, fileId)}
+                      onRemoveFile={(chapterId, fileId) => onRemoveFile(subject.id || subject._id || '', chapterId, fileId)}
                       onDownloadFile={onDownloadFile}
                       onViewFile={onViewFile}
                       onUpdateDescription={handleUpdateChapter}
@@ -2971,7 +2976,10 @@ const ProgressAnalyticsContent: React.FC<any> = ({ syllabusItems = [], currentUs
       });
 
       const totals = chapterNodes.reduce(
-        (acc, c) => ({ total: acc.total + c.total, done: acc.done + c.done }),
+        (acc: { total: number; done: number }, c: { total: number; done: number }) => ({
+          total: acc.total + c.total,
+          done: acc.done + c.done,
+        }),
         { total: 0, done: 0 }
       );
       const progress = totals.total ? Math.round((totals.done / totals.total) * 100) : Math.round(Number(s?.progress || 0));
@@ -3269,14 +3277,14 @@ const ProgressAnalyticsContent: React.FC<any> = ({ syllabusItems = [], currentUs
                   </div>
 
                   <div className="mt-4 space-y-3">
-                    {s.chapters.slice(0, 3).map((c) => (
+                    {s.chapters.slice(0, 3).map((c: any) => (
                       <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl p-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="text-sm font-semibold text-gray-200 truncate">{c.name}</div>
                           <div className="text-xs text-gray-400">{c.progress}%</div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {c.topics.slice(0, 4).map((t, idx) => (
+                          {c.topics.slice(0, 4).map((t: any, idx: number) => (
                             <div key={`${c.id}_${idx}`} className="flex items-center justify-between text-xs bg-black/20 border border-white/5 rounded-lg px-2 py-1.5">
                               <div className="flex items-center min-w-0">
                                 {t.completed ? (
@@ -3529,6 +3537,10 @@ const sectionComponents: Record<string, React.FC<any>> = {
   'AI Tutor': AITutorContent,
   'Practice & Quiz': PracticeQuizContent,
   'Progress & Analytics': ProgressAnalyticsContent,
+  'Revision Mode': RevisionModeContent,
+  'Study Plan': StudyPlanContent,
+  'Notifications': NotificationContent,
+  'Settings': SettingsContent,
   // Add more sections as needed
 };
 
@@ -3651,7 +3663,7 @@ const DashboardLayout = () => {
 
   const updateSubject = async (updatedSubject: SyllabusItem) => {
     try {
-      const response = await updateSyllabus(updatedSubject.id, updatedSubject);
+      const response = await updateSyllabus(updatedSubject.id || updatedSubject._id || '', updatedSubject);
       const updated = response as SyllabusItem;
       setSyllabusItems(prev =>
         prev.map(item => item.id === updated.id ? updated : item)

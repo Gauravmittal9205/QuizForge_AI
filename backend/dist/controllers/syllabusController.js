@@ -9,12 +9,14 @@ const syllabusModel_1 = __importDefault(require("../models/syllabusModel"));
 const createSyllabus = async (req, res) => {
     var _a, _b, _c;
     try {
-        const syllabusData = {
-            ...req.body,
+        // Remove any id and _id fields to let MongoDB generate proper ObjectId
+        const { id, _id, ...syllabusData } = req.body;
+        const syllabusDataWithUser = {
+            ...syllabusData,
             userId: ((_a = req.body) === null || _a === void 0 ? void 0 : _a.userId) || ((_b = req.body) === null || _b === void 0 ? void 0 : _b.uid),
             targetDate: ((_c = req.body) === null || _c === void 0 ? void 0 : _c.targetDate) ? new Date(req.body.targetDate) : undefined,
         };
-        const syllabus = await syllabusModel_1.default.create(syllabusData);
+        const syllabus = await syllabusModel_1.default.create(syllabusDataWithUser);
         res.status(201).json(syllabus);
     }
     catch (error) {
