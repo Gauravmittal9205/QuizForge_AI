@@ -288,8 +288,10 @@ export const startSession = async (req: Request, res: Response) => {
                     continue;
                 }
 
-                // For other errors (like 400, 401, 404), don't fallback as they indicate a config issue
-                throw error;
+                // Non-retryable OpenRouter errors (e.g. 401 invalid key).
+                // Break out so we can fall back to local Ollama (if configured).
+                console.warn(`OpenRouter returned non-retryable error (${statusCode}). Falling back to Ollama if available...`);
+                break;
             }
         }
 

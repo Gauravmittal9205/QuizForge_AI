@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -8,6 +8,10 @@ import {
   Brain,
   ClipboardList,
   BarChart2,
+  TrendingUp,
+  TrendingDown,
+  Flame,
+  PieChart,
   RefreshCw,
   Target,
   Bell,
@@ -2608,43 +2612,898 @@ const AITutorContent = () => {
  
 
 // Add more content components for other sections
-const ProgressAnalyticsContent = () => (
-  <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-white">Progress & Analytics</h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Study Time</h3>
-        <div className="h-64 flex items-center justify-center bg-gray-900/30 rounded-lg">
-          <p className="text-gray-500">Study time chart will be displayed here</p>
-        </div>
-      </div>
-      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Performance</h3>
-        <div className="space-y-4">
-          {[
-            { name: 'Physics', score: 78, color: 'from-purple-500 to-blue-500' },
-            { name: 'Chemistry', score: 65, color: 'from-green-500 to-teal-500' },
-            { name: 'Mathematics', score: 82, color: 'from-yellow-500 to-orange-500' },
-            { name: 'Biology', score: 45, color: 'from-red-500 to-pink-500' },
-          ].map((subject, index) => (
-            <div key={index} className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-300">{subject.name}</span>
-                <span className="font-medium text-white">{subject.score}%</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full bg-gradient-to-r ${subject.color}`}
-                  style={{ width: `${subject.score}%` }}
-                ></div>
+const ProgressAnalyticsContent: React.FC<any> = ({ syllabusItems = [], currentUser, onNavigateSection }) => {
+  type QuizTypeKey = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'SHORT' | 'NUMERICAL' | 'ASSERTION_REASON' | 'FILL_BLANK';
+
+  type QuizQuestion = {
+    id: string;
+    type: QuizTypeKey;
+    question: string;
+    options?: string[];
+    correctOption?: number;
+    correctOptions?: number[];
+    expectedKeywords?: string[];
+    numerical?: { finalAnswer: number; tolerance: number; unit?: string };
+    assertionReason?: { correctOption: 'A' | 'B' | 'C' | 'D' };
+    fillBlank?: { answer: string };
+  };
+
+  type QuizPayload = {
+    questions: QuizQuestion[];
+  };
+
+  type AnswerValue =
+    | { kind: 'mcq_single'; value: number | null }
+    | { kind: 'mcq_multi'; value: number[] }
+    | { kind: 'text'; value: string }
+    | { kind: 'assertion_reason'; value: 'A' | 'B' | 'C' | 'D' | '' };
+
+  type StoredQuizAttempt = {
+    id: string;
+    createdAt: number;
+    userId: string;
+    subjectId: string;
+    subjectName?: string;
+    topicName: string;
+    difficulty: 'Easy' | 'Medium' | 'Hard';
+    timeMode: 'Timed' | 'Practice';
+    examType: string;
+    questionCount: number;
+    quiz: QuizPayload;
+    answers: Record<string, AnswerValue>;
+  };
+
+  const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [chartType, setChartType] = useState<'line' | 'bar' | 'heatmap'>('line');
+
+  const PREVIOUS_ATTEMPTS_KEY = 'practice_quiz_previous_attempts_v1';
+
+  const normalize = (s: string) => s.toLowerCase().trim();
+
+  const isAnsweredValue = (a: AnswerValue | undefined): boolean => {
+    if (!a) return false;
+    if (a.kind === 'mcq_single') return typeof a.value === 'number';
+    if (a.kind === 'mcq_multi') return Array.isArray(a.value) && a.value.length > 0;
+    if (a.kind === 'assertion_reason') return !!a.value;
+    return !!a.value?.trim();
+  };
+
+  const evaluateAnswer = (q: QuizQuestion, a: AnswerValue): boolean | null => {
+    if (q.type === 'MCQ_SINGLE') {
+      if (a.kind !== 'mcq_single' || a.value === null) return null;
+      return typeof q.correctOption === 'number' ? a.value === q.correctOption : null;
+    }
+    if (q.type === 'MCQ_MULTI') {
+      if (a.kind !== 'mcq_multi') return null;
+      const user = [...a.value].sort((x, y) => x - y);
+      const correctArr = Array.isArray(q.correctOptions) ? [...q.correctOptions].sort((x, y) => x - y) : null;
+      if (!correctArr || !user.length) return null;
+      return JSON.stringify(user) === JSON.stringify(correctArr);
+    }
+    if (q.type === 'ASSERTION_REASON') {
+      if (a.kind !== 'assertion_reason' || !a.value) return null;
+      return q.assertionReason?.correctOption ? a.value === q.assertionReason.correctOption : null;
+    }
+    if (q.type === 'FILL_BLANK') {
+      if (a.kind !== 'text') return null;
+      const expected = q.fillBlank?.answer;
+      if (!expected || !a.value.trim()) return null;
+      return normalize(a.value) === normalize(expected);
+    }
+    if (q.type === 'NUMERICAL') {
+      if (a.kind !== 'text') return null;
+      const expected = q.numerical?.finalAnswer;
+      const tol = q.numerical?.tolerance ?? 0;
+      const userVal = Number(a.value);
+      if (!a.value.trim() || Number.isNaN(userVal) || typeof expected !== 'number') return null;
+      return Math.abs(userVal - expected) <= tol;
+    }
+    if (q.type === 'SHORT') {
+      if (a.kind !== 'text') return null;
+      if (!a.value.trim()) return null;
+      const keywords = Array.isArray(q.expectedKeywords) ? q.expectedKeywords : [];
+      if (!keywords.length) return null;
+      const text = normalize(a.value);
+      const hits = keywords.filter((k) => text.includes(normalize(k)));
+      return hits.length >= Math.min(2, keywords.length);
+    }
+    return null;
+  };
+
+  const parseAttempts = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(PREVIOUS_ATTEMPTS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      const arr: StoredQuizAttempt[] = Array.isArray(parsed) ? parsed : [];
+      const mine = currentUser?.uid ? arr.filter((a) => a?.userId === currentUser.uid) : [];
+      return mine.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    } catch {
+      return [] as StoredQuizAttempt[];
+    }
+  }, [currentUser?.uid]);
+
+  const parseTopicsFromDescription = (desc: string) => {
+    const topics: Array<{ text: string; completed: boolean }> = [];
+    const lines = desc.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.match(/^[-•*]\s*\[[ x]\]/i)) continue;
+      const completed = !!trimmed.match(/^[-•*]\s*\[x\]/i);
+      const text = trimmed.replace(/^[-•*]\s*\[[ x]\]\s*/i, '').trim();
+      if (!text) continue;
+      topics.push({ text, completed });
+    }
+    return topics;
+  };
+
+  const formatHrs = (seconds: number) => {
+    const h = seconds / 3600;
+    if (h < 1) return `${Math.round((seconds / 60) * 10) / 10}m`;
+    return `${Math.round(h * 10) / 10}h`;
+  };
+
+  const analytics = useMemo(() => {
+    const perQuestionSecDefault = 45;
+    const perQuestionSecTimed = 60;
+
+    const overall = { total: 0, correct: 0, wrong: 0, skipped: 0, focusSeconds: 0 };
+    const bySubject: Record<string, { name: string; total: 0 | number; correct: number; wrong: number; skipped: number; focusSeconds: number; last7: { total: number; correct: number }; prev7: { total: number; correct: number } }> = {};
+    const byTopic: Record<string, { key: string; subjectName: string; topicName: string; total: number; correct: number; wrong: number; focusSeconds: number; recentWrong: number }> = {};
+    const focusByDay: Record<string, number> = {};
+    const focusByHour: Record<string, number> = {};
+
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    for (const a of parseAttempts) {
+      const qs = Array.isArray(a?.quiz?.questions) ? a.quiz.questions : [];
+      const perQ = a.timeMode === 'Timed' ? perQuestionSecTimed : perQuestionSecDefault;
+      const focusSeconds = qs.length * perQ;
+
+      overall.focusSeconds += focusSeconds;
+      const dKey = new Date(a.createdAt).toISOString().slice(0, 10);
+      focusByDay[dKey] = (focusByDay[dKey] || 0) + focusSeconds;
+      const hour = new Date(a.createdAt).getHours();
+      const hKey = `${hour}`;
+      focusByHour[hKey] = (focusByHour[hKey] || 0) + focusSeconds;
+
+      const subjectKey = a.subjectId || a.subjectName || 'unknown';
+      if (!bySubject[subjectKey]) {
+        bySubject[subjectKey] = {
+          name: a.subjectName || 'Unknown',
+          total: 0,
+          correct: 0,
+          wrong: 0,
+          skipped: 0,
+          focusSeconds: 0,
+          last7: { total: 0, correct: 0 },
+          prev7: { total: 0, correct: 0 },
+        };
+      }
+      bySubject[subjectKey].focusSeconds += focusSeconds;
+
+      const ageDays = Math.floor((now - (a.createdAt || 0)) / dayMs);
+      const bucket = ageDays <= 6 ? 'last7' : ageDays <= 13 ? 'prev7' : null;
+
+      for (const q of qs) {
+        overall.total += 1;
+        bySubject[subjectKey].total += 1;
+        if (bucket) bySubject[subjectKey][bucket].total += 1;
+
+        const ans = a.answers?.[q.id];
+        if (!isAnsweredValue(ans)) {
+          overall.skipped += 1;
+          bySubject[subjectKey].skipped += 1;
+          continue;
+        }
+
+        const r = ans ? evaluateAnswer(q, ans) : null;
+        if (r === true) {
+          overall.correct += 1;
+          bySubject[subjectKey].correct += 1;
+          if (bucket) bySubject[subjectKey][bucket].correct += 1;
+        } else {
+          overall.wrong += 1;
+          bySubject[subjectKey].wrong += 1;
+        }
+      }
+
+      const topicName = a.topicName || 'Unknown Topic';
+      const topicKey = `${subjectKey}__${topicName}`;
+      if (!byTopic[topicKey]) {
+        byTopic[topicKey] = {
+          key: topicKey,
+          subjectName: a.subjectName || 'Unknown',
+          topicName,
+          total: 0,
+          correct: 0,
+          wrong: 0,
+          focusSeconds: 0,
+          recentWrong: 0,
+        };
+      }
+      byTopic[topicKey].focusSeconds += focusSeconds;
+
+      for (const q of qs) {
+        const ans = a.answers?.[q.id];
+        const answered = isAnsweredValue(ans);
+        if (!answered) continue;
+        const r = ans ? evaluateAnswer(q, ans) : null;
+        byTopic[topicKey].total += 1;
+        if (r === true) byTopic[topicKey].correct += 1;
+        else {
+          byTopic[topicKey].wrong += 1;
+          if (bucket === 'last7') byTopic[topicKey].recentWrong += 1;
+        }
+      }
+    }
+
+    const overallAccuracy = overall.total ? Math.round((overall.correct / overall.total) * 100) : 0;
+    const avgSecPerQ = overall.total ? Math.round(overall.focusSeconds / overall.total) : 0;
+
+    const subjects = Object.entries(bySubject)
+      .map(([key, s]) => {
+        const acc = s.total ? Math.round((s.correct / s.total) * 100) : 0;
+        const last7Acc = s.last7.total ? Math.round((s.last7.correct / s.last7.total) * 100) : 0;
+        const prev7Acc = s.prev7.total ? Math.round((s.prev7.correct / s.prev7.total) * 100) : 0;
+        const delta = last7Acc - prev7Acc;
+        return {
+          key,
+          name: s.name,
+          accuracy: acc,
+          total: s.total,
+          focusSeconds: s.focusSeconds,
+          last7Acc,
+          prev7Acc,
+          delta,
+        };
+      })
+      .sort((a, b) => b.accuracy - a.accuracy);
+
+    const topics = Object.values(byTopic)
+      .map((t) => {
+        const acc = t.total ? Math.round((t.correct / t.total) * 100) : 0;
+        return { ...t, accuracy: acc };
+      })
+      .sort((a, b) => a.accuracy - b.accuracy || b.wrong - a.wrong);
+
+    const dayKeys = Object.keys(focusByDay).sort();
+    const last28Days = [] as Array<{ day: string; seconds: number }>;
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      last28Days.push({ day: key, seconds: focusByDay[key] || 0 });
+    }
+
+    const bestHour = Object.entries(focusByHour).sort((a, b) => (b[1] || 0) - (a[1] || 0))[0]?.[0];
+
+    const uniqueDays = Array.from(new Set(parseAttempts.map((a) => new Date(a.createdAt).toISOString().slice(0, 10)))).sort();
+    const daySet = new Set(uniqueDays);
+    let streak = 0;
+    for (let i = 0; i < 365; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      if (!daySet.has(key)) break;
+      streak += 1;
+    }
+
+    let missedLast14 = 0;
+    for (let i = 0; i < 14; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      if (!daySet.has(key)) missedLast14 += 1;
+    }
+
+    return {
+      overall,
+      overallAccuracy,
+      avgSecPerQ,
+      subjects,
+      topics,
+      dayKeys,
+      focusByDay,
+      last28Days,
+      bestHour: typeof bestHour === 'string' ? Number(bestHour) : null,
+      streak,
+      missedLast14,
+    };
+  }, [parseAttempts]);
+
+  const timeSeries = useMemo(() => {
+    const byDay = analytics.focusByDay;
+    const days = Object.keys(byDay).sort();
+    if (timeRange === 'daily') {
+      const slice = days.slice(-14);
+      return slice.map((k) => ({ label: k.slice(5), seconds: byDay[k] || 0 }));
+    }
+
+    const weekKey = (d: Date) => {
+      const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = tmp.getUTCDay() || 7;
+      tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((tmp.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+      return `${tmp.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+    };
+
+    const monthKey = (d: Date) => `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+
+    const grouped: Record<string, number> = {};
+    for (const k of days) {
+      const d = new Date(k);
+      const key = timeRange === 'weekly' ? weekKey(d) : monthKey(d);
+      grouped[key] = (grouped[key] || 0) + (byDay[k] || 0);
+    }
+    const keys = Object.keys(grouped).sort();
+    const slice = timeRange === 'weekly' ? keys.slice(-8) : keys.slice(-6);
+    return slice.map((k) => ({ label: k, seconds: grouped[k] || 0 }));
+  }, [analytics.focusByDay, timeRange]);
+
+  const linePath = useMemo(() => {
+    const pts = timeSeries;
+    const max = Math.max(1, ...pts.map((p) => p.seconds));
+    const w = 560;
+    const h = 160;
+    const pad = 12;
+    const xStep = pts.length > 1 ? (w - pad * 2) / (pts.length - 1) : 0;
+    const coords = pts.map((p, i) => {
+      const x = pad + i * xStep;
+      const y = pad + (h - pad * 2) * (1 - p.seconds / max);
+      return `${x},${y}`;
+    });
+    return coords.join(' ');
+  }, [timeSeries]);
+
+  const syllabusTree = useMemo(() => {
+    const subjects = Array.isArray(syllabusItems) ? syllabusItems : [];
+    return subjects.map((s: any) => {
+      const chapters = Array.isArray(s?.chapters) ? s.chapters : [];
+      const chapterNodes = chapters.map((c: any) => {
+        const desc = typeof c?.description === 'string' ? c.description : '';
+        const topics = desc ? parseTopicsFromDescription(desc) : [];
+        const total = topics.length;
+        const done = topics.filter((t) => t.completed).length;
+        const progress = total ? Math.round((done / total) * 100) : 0;
+        return { id: c?.id || c?.name, name: c?.name || 'Chapter', topics, total, done, progress };
+      });
+
+      const totals = chapterNodes.reduce(
+        (acc, c) => ({ total: acc.total + c.total, done: acc.done + c.done }),
+        { total: 0, done: 0 }
+      );
+      const progress = totals.total ? Math.round((totals.done / totals.total) * 100) : Math.round(Number(s?.progress || 0));
+
+      return {
+        id: s.id,
+        name: s.name,
+        subjectCode: s.subjectCode || '—',
+        targetDate: s.targetDate,
+        chapters: chapterNodes,
+        total: totals.total,
+        done: totals.done,
+        progress: Math.max(0, Math.min(100, progress || 0)),
+      };
+    });
+  }, [syllabusItems]);
+
+  const weakTopics = useMemo(() => {
+    return analytics.topics
+      .filter((t) => t.total >= 5)
+      .slice(0, 6)
+      .map((t) => {
+        const label = t.accuracy <= 45 ? 'Needs revision' : t.accuracy <= 65 ? 'Improve' : 'Good';
+        return { ...t, label };
+      });
+  }, [analytics.topics]);
+
+  const mastery = useMemo(() => {
+    const rows = analytics.topics
+      .filter((t) => t.total >= 3)
+      .map((t) => {
+        const acc = t.accuracy;
+        const coverage = Math.min(1, t.total / 20);
+        const score = Math.round(acc * coverage);
+        const band = score >= 75 ? 'Strong' : score >= 45 ? 'Average' : 'Weak';
+        return { ...t, score, band };
+      })
+      .sort((a, b) => a.score - b.score);
+
+    return {
+      weak: rows.slice(0, 6),
+      strong: rows.slice(-3).reverse(),
+    };
+  }, [analytics.topics]);
+
+  const navigateTo = (name: string) => {
+    if (typeof onNavigateSection === 'function') {
+      onNavigateSection(name);
+    }
+  };
+
+  const targetAccuracy = 80;
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-white">Progress & Analytics</h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Study Time Breakdown</h3>
+              <p className="text-xs text-gray-400 mt-1">Estimated focused time from your quiz activity (idle time excluded is available once session tracking is enabled)</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-gray-700 overflow-hidden">
+                <button
+                  onClick={() => setTimeRange('daily')}
+                  className={`px-3 py-1.5 text-xs font-semibold ${timeRange === 'daily' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                  Daily
+                </button>
+                <button
+                  onClick={() => setTimeRange('weekly')}
+                  className={`px-3 py-1.5 text-xs font-semibold ${timeRange === 'weekly' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setTimeRange('monthly')}
+                  className={`px-3 py-1.5 text-xs font-semibold ${timeRange === 'monthly' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                  Monthly
+                </button>
               </div>
             </div>
-          ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center text-gray-300 text-sm">
+                <Clock size={16} className="mr-2 text-purple-400" />
+                <span className="font-semibold text-white">{formatHrs(analytics.overall.focusSeconds)}</span>
+                <span className="text-gray-400 ml-2">focused</span>
+              </div>
+              <div className="text-sm text-gray-400">
+                Avg: <span className="text-gray-200 font-semibold">{analytics.avgSecPerQ}s</span>/question
+              </div>
+            </div>
+            <div className="inline-flex rounded-lg border border-gray-700 overflow-hidden">
+              <button
+                onClick={() => setChartType('line')}
+                className={`px-3 py-1.5 text-xs font-semibold ${chartType === 'line' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                Line
+              </button>
+              <button
+                onClick={() => setChartType('bar')}
+                className={`px-3 py-1.5 text-xs font-semibold ${chartType === 'bar' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                Bar
+              </button>
+              <button
+                onClick={() => setChartType('heatmap')}
+                className={`px-3 py-1.5 text-xs font-semibold ${chartType === 'heatmap' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                Heatmap
+              </button>
+            </div>
+          </div>
+
+          <div className="h-64 bg-gray-900/30 rounded-lg p-4 border border-gray-800">
+            {parseAttempts.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-gray-500 text-sm">Attempt a quiz to start generating analytics.</div>
+            ) : chartType === 'line' ? (
+              <div className="h-full">
+                <svg viewBox="0 0 560 160" className="w-full h-40">
+                  <polyline points={linePath} fill="none" stroke="url(#grad)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                  <defs>
+                    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#a855f7" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="mt-3 grid grid-cols-7 gap-2 text-[10px] text-gray-500">
+                  {timeSeries.slice(-7).map((p) => (
+                    <div key={p.label} className="truncate">{p.label}</div>
+                  ))}
+                </div>
+              </div>
+            ) : chartType === 'bar' ? (
+              <div className="h-full flex flex-col justify-center">
+                <div className="space-y-3">
+                  {analytics.subjects.slice(0, 6).map((s) => {
+                    const max = Math.max(1, ...analytics.subjects.map((x) => x.focusSeconds));
+                    const w = Math.round((s.focusSeconds / max) * 100);
+                    return (
+                      <div key={s.key} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="text-gray-300 truncate">{s.name}</div>
+                          <div className="text-gray-400">{formatHrs(s.focusSeconds)}</div>
+                        </div>
+                        <div className="w-full bg-gray-800 rounded-full h-2">
+                          <div className="h-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500" style={{ width: `${w}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col justify-between">
+                <div className="text-xs text-gray-400 mb-3 flex items-center justify-between">
+                  <span>Consistency</span>
+                  <span className="flex items-center"><Flame size={14} className="text-orange-400 mr-1" />{analytics.streak}-day streak</span>
+                </div>
+                <div className="grid grid-cols-7 gap-2">
+                  {analytics.last28Days.map((d) => {
+                    const level = d.seconds === 0 ? 0 : d.seconds < 15 * 60 ? 1 : d.seconds < 45 * 60 ? 2 : d.seconds < 90 * 60 ? 3 : 4;
+                    const cls = level === 0 ? 'bg-gray-800' : level === 1 ? 'bg-purple-900/40' : level === 2 ? 'bg-purple-700/50' : level === 3 ? 'bg-blue-600/60' : 'bg-blue-500/80';
+                    return (
+                      <div
+                        key={d.day}
+                        title={`${d.day}: ${formatHrs(d.seconds)}`}
+                        className={`w-full aspect-square rounded ${cls} border border-gray-800`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="text-[10px] text-gray-500 mt-3">Hover blocks to see your daily focused time.</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Performance</h3>
+              <p className="text-xs text-gray-400 mt-1">Target vs Actual • Improvement trend • Weak/Strong indicators</p>
+            </div>
+            <div className="text-xs text-gray-400 flex items-center">
+              <Target size={14} className="text-blue-400 mr-2" /> Target {targetAccuracy}%
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {analytics.subjects.length === 0 ? (
+              <div className="text-sm text-gray-500">No quiz performance data yet.</div>
+            ) : (
+              analytics.subjects.slice(0, 6).map((s) => {
+                const delta = s.delta;
+                const trendUp = delta > 0;
+                const trendDown = delta < 0;
+                const indicator = s.accuracy >= 70 ? 'strong' : s.accuracy <= 50 ? 'weak' : 'mid';
+
+                return (
+                  <div key={s.key} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-200 truncate">{s.name}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {indicator === 'strong' ? '🟢 Strong' : indicator === 'weak' ? '🔴 Weak' : '🟡 Improving'}
+                          <span className="text-gray-600"> • </span>
+                          Last 7d: <span className="text-gray-300 font-semibold">{s.last7Acc}%</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-white">{s.accuracy}%</div>
+                        <div className={`text-xs mt-0.5 flex items-center justify-end ${trendUp ? 'text-green-400' : trendDown ? 'text-red-400' : 'text-gray-400'}`}>
+                          {trendUp ? <TrendingUp size={14} className="mr-1" /> : trendDown ? <TrendingDown size={14} className="mr-1" /> : null}
+                          {delta === 0 ? '—' : `${delta > 0 ? '+' : ''}${delta}% this week`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden relative">
+                      <div
+                        className={`h-2 rounded-full bg-gradient-to-r ${indicator === 'strong' ? 'from-green-500 to-emerald-500' : indicator === 'weak' ? 'from-red-500 to-pink-500' : 'from-purple-500 to-blue-500'}`}
+                        style={{ width: `${Math.max(0, Math.min(100, s.accuracy))}%` }}
+                      />
+                      <div
+                        className="absolute top-0 bottom-0 w-[2px] bg-white/60"
+                        style={{ left: `${targetAccuracy}%` }}
+                        title="Target"
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Syllabus Completion Tracker</h3>
+              <p className="text-xs text-gray-400 mt-1">Subject → Chapters → Topics (with direct actions)</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigateTo('Practice & Quiz')}
+                className="px-3 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white"
+              >
+                Practice Quiz
+              </button>
+              <button
+                onClick={() => navigateTo('AI Tutor')}
+                className="px-3 py-2 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/15 text-white border border-white/10"
+              >
+                AI Tutor
+              </button>
+              <button
+                onClick={() => navigateTo('Revision Mode')}
+                className="px-3 py-2 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/15 text-white border border-white/10"
+              >
+                Revision
+              </button>
+            </div>
+          </div>
+
+          {syllabusTree.length === 0 ? (
+            <div className="text-sm text-gray-500">No syllabus subjects found.</div>
+          ) : (
+            <div className="space-y-4">
+              {syllabusTree.slice(0, 4).map((s) => (
+                <div key={s.id} className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-white truncate">{s.name}</div>
+                      <div className="text-xs text-gray-500 mt-1">{s.subjectCode} • Topics {s.done}/{s.total}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-white">{s.progress}%</div>
+                      <div className="text-xs text-gray-500 mt-1">{s.targetDate ? new Date(s.targetDate).toLocaleDateString() : 'No target'}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                    <div className="h-2 rounded-full bg-gradient-to-r from-purple-500 to-blue-500" style={{ width: `${s.progress}%` }} />
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {s.chapters.slice(0, 3).map((c) => (
+                      <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-semibold text-gray-200 truncate">{c.name}</div>
+                          <div className="text-xs text-gray-400">{c.progress}%</div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {c.topics.slice(0, 4).map((t, idx) => (
+                            <div key={`${c.id}_${idx}`} className="flex items-center justify-between text-xs bg-black/20 border border-white/5 rounded-lg px-2 py-1.5">
+                              <div className="flex items-center min-w-0">
+                                {t.completed ? (
+                                  <CheckCircle size={14} className="text-green-400 mr-2 flex-shrink-0" />
+                                ) : (
+                                  <Clock size={14} className="text-amber-400 mr-2 flex-shrink-0" />
+                                )}
+                                <span className={`truncate ${t.completed ? 'text-gray-400 line-through' : 'text-gray-200'}`}>{t.text}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <h3 className="text-lg font-semibold text-white mb-1">AI Recommendations</h3>
+          <p className="text-xs text-gray-400 mb-4">Today’s AI Plan (auto-built from weak areas + pending topics)</p>
+
+          <div className="space-y-3">
+            {weakTopics.slice(0, 3).map((t) => (
+              <div key={t.key} className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-white truncate">Revise {t.topicName}</div>
+                    <div className="text-xs text-gray-500 mt-1">{t.subjectName} • Accuracy {t.accuracy}%</div>
+                  </div>
+                  <div className="text-xs px-2 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">{t.label}</div>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={() => navigateTo('Practice & Quiz')}
+                    className="flex-1 px-3 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white"
+                  >
+                    Start Now
+                  </button>
+                  <button
+                    onClick={() => navigateTo('AI Tutor')}
+                    className="px-3 py-2 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/15 text-white border border-white/10"
+                  >
+                    AI Explain
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button className="flex-1 px-3 py-2 text-xs font-bold rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10">Skip</button>
+                  <button className="flex-1 px-3 py-2 text-xs font-bold rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10">Reschedule</button>
+                </div>
+              </div>
+            ))}
+
+            {weakTopics.length === 0 ? (
+              <div className="text-sm text-gray-500">No weak areas detected yet. Attempt more quizzes to generate insights.</div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Weak Areas Detection</h3>
+              <p className="text-xs text-gray-400 mt-1">Low accuracy • Repeated mistakes • Time-heavy topics</p>
+            </div>
+            <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <Lightbulb size={18} className="text-purple-300" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {weakTopics.slice(0, 4).map((t) => (
+              <div key={t.key} className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+                <div className="text-sm font-bold text-white">AI Insight</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  You struggle with <span className="text-gray-200 font-semibold">{t.topicName}</span> ({t.subjectName})
+                </div>
+                <div className="text-xs text-gray-500 mt-2">Accuracy {t.accuracy}% • Wrong {t.wrong} • Time {formatHrs(t.focusSeconds)}</div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button onClick={() => navigateTo('Practice & Quiz')} className="flex-1 px-3 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white">
+                    Take 10-question Quiz
+                  </button>
+                  <button onClick={() => navigateTo('AI Tutor')} className="px-3 py-2 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/15 text-white border border-white/10">
+                    AI Explain
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {weakTopics.length === 0 ? (
+              <div className="text-sm text-gray-500">No weak topics detected yet.</div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Quiz Analytics</h3>
+              <p className="text-xs text-gray-400 mt-1">Attempts • Accuracy • Avg time • Risk</p>
+            </div>
+            <PieChart size={18} className="text-blue-300" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+              <div className="text-xs text-gray-500">Total quizzes</div>
+              <div className="text-2xl font-extrabold text-white mt-1">{parseAttempts.length}</div>
+            </div>
+            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+              <div className="text-xs text-gray-500">Accuracy</div>
+              <div className="text-2xl font-extrabold text-white mt-1">{analytics.overallAccuracy}%</div>
+            </div>
+            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+              <div className="text-xs text-gray-500">Avg time/Q</div>
+              <div className="text-2xl font-extrabold text-white mt-1">{analytics.avgSecPerQ}s</div>
+            </div>
+            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+              <div className="text-xs text-gray-500">Neg marking risk</div>
+              <div className="text-2xl font-extrabold text-white mt-1">
+                {analytics.overall.total ? Math.round((analytics.overall.wrong / analytics.overall.total) * 100) : 0}%
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+            <div className="text-xs text-gray-500 mb-2">Correct / Wrong / Skipped</div>
+            <div className="w-full h-3 rounded-full overflow-hidden bg-gray-800 flex">
+              {(() => {
+                const t = Math.max(1, analytics.overall.total);
+                const w1 = Math.round((analytics.overall.correct / t) * 100);
+                const w2 = Math.round((analytics.overall.wrong / t) * 100);
+                const w3 = Math.max(0, 100 - w1 - w2);
+                return (
+                  <>
+                    <div className="h-3 bg-green-500" style={{ width: `${w1}%` }} />
+                    <div className="h-3 bg-red-500" style={{ width: `${w2}%` }} />
+                    <div className="h-3 bg-gray-500" style={{ width: `${w3}%` }} />
+                  </>
+                );
+              })()}
+            </div>
+            <div className="mt-2 text-xs text-gray-400 flex items-center justify-between">
+              <span>✅ {analytics.overall.correct}</span>
+              <span>❌ {analytics.overall.wrong}</span>
+              <span>⏭ {analytics.overall.skipped}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Concept Mastery Meter</h3>
+              <p className="text-xs text-gray-400 mt-1">Mastery auto-updates from quiz performance</p>
+            </div>
+            <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <BarChart size={18} className="text-blue-300" />
+            </div>
+          </div>
+
+          {mastery.weak.length === 0 ? (
+            <div className="text-sm text-gray-500">No mastery data yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {mastery.weak.slice(0, 6).map((m) => (
+                <div key={m.key} className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-white truncate">{m.topicName}</div>
+                      <div className="text-xs text-gray-500 mt-1">{m.subjectName} • {m.band}</div>
+                    </div>
+                    <div className={`text-xs px-2 py-1 rounded-full border ${m.band === 'Strong' ? 'bg-green-500/10 text-green-300 border-green-500/20' : m.band === 'Weak' ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-amber-500/10 text-amber-300 border-amber-500/20'}`}>
+                      {m.score}%
+                    </div>
+                  </div>
+                  <div className="mt-3 w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-2 rounded-full ${m.band === 'Strong' ? 'bg-green-500' : m.band === 'Weak' ? 'bg-red-500' : 'bg-amber-500'}`}
+                      style={{ width: `${Math.max(0, Math.min(100, m.score))}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Study Consistency & Discipline</h3>
+            <p className="text-xs text-gray-400 mt-1">Streaks • Missed days • Best study time</p>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Flame size={18} className="text-orange-400" />
+            <span className="text-gray-200 font-bold">{analytics.streak}-day streak</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+            <div className="text-xs text-gray-500">Missed days (last 14)</div>
+            <div className="text-2xl font-extrabold text-white mt-1">{analytics.missedLast14}</div>
+          </div>
+          <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+            <div className="text-xs text-gray-500">Best study time</div>
+            <div className="text-2xl font-extrabold text-white mt-1">
+              {analytics.bestHour === null ? '—' : `${analytics.bestHour.toString().padStart(2, '0')}:00–${((analytics.bestHour + 2) % 24).toString().padStart(2, '0')}:00`}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">based on your activity</div>
+          </div>
+          <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+            <div className="text-xs text-gray-500">Total focused time</div>
+            <div className="text-2xl font-extrabold text-white mt-1">{formatHrs(analytics.overall.focusSeconds)}</div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Map of section names to their corresponding content components
 // Map of section names to their corresponding content components
@@ -3261,7 +4120,8 @@ const DashboardLayout = () => {
                 onDownloadFile: downloadChapterFile,
                 onViewFile: handleOpenFile,
                 onExtractTopics: handleExtractTopics,
-                currentUser: currentUser
+                currentUser: currentUser,
+                onNavigateSection: setActiveSection
               })}
             </div>
           ) : (

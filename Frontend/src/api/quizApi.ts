@@ -4,7 +4,7 @@ const API_URL = 'http://localhost:5001/api/quiz';
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 45000,
+  timeout: 600000,
   headers: {
     'Content-Type': 'application/json',
   },
